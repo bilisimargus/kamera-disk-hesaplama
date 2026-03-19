@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kamera Hesaplama</title>
+
+<style>
+body { font-family: Arial; background:#0f172a; color:#fff; margin:0; padding:10px; }
+.container { max-width:1100px; margin:auto; background:#1e293b; padding:15px; border-radius:12px; }
+h2 { text-align:center; color:#38bdf8; }
+
+.table-wrapper { overflow-x:auto; }
+
+table { width:100%; min-width:800px; border-collapse: collapse; }
+th, td { padding:8px; text-align:center; border-bottom:1px solid #334155; }
+th { background:#334155; }
+
+input, select { width:100%; padding:6px; border-radius:6px; border:none; }
+
+button { border:none; border-radius:8px; cursor:pointer; font-weight:bold; }
+.add-btn { background:#38bdf8; color:#000; width:100%; padding:10px; margin-top:10px; }
+.calc-btn { background:#38bdf8; color:#000; width:100%; padding:12px; margin-top:10px; }
+.del-btn { background:#ef4444; color:#fff; padding:6px 10px; }
+.wa-btn { background:#25d366; color:#fff; width:100%; padding:12px; margin-top:10px; }
+
+.result { margin-top:15px; padding:15px; background:#020617; border-radius:10px; text-align:center; }
+</style>
+</head>
+
+<body>
+
+<div class="container">
+<h2>Kamera Disk Hesaplama</h2>
+
+<div class="table-wrapper">
+<table id="camTable">
+<thead>
+<tr>
+<th>Adet</th>
+<th>Çözünürlük</th>
+<th>Codec</th>
+<th>FPS</th>
+<th>Bandwidth (Kbps)</th>
+<th>Günlük Kayıt Tipi</th>
+<th>Kayıt süresi (gün)</th>
+<th>Sil</th>
+</tr>
+</thead>
+<tbody></tbody>
+</table>
+</div>
+
+<button class="add-btn" onclick="addRow()">+ Kamera Ekle</button>
+<button class="calc-btn" onclick="hesapla()">HESAPLA</button>
+
+<div class="result" id="sonuc"></div>
+<button class="wa-btn" onclick="gonder()">WhatsApp Teklif Al</button>
+
+</div>
+
+<script>
+const bitrateTable = {
+  "720P": 2048,
+  "960P": 2048,
+  "1080P": 4096,
+  "3MP": 4096,
+  "4MP": 5120,
+  "5MP": 6144,
+  "6MP": 6144,
+  "8MP": 8192,
+  "9MP": 9000,
+  "12MP": 12288
+};
+
+function getFpsFactor(fps){
+  if(fps >= 25) return 1;
+  if(fps >= 20) return 0.85;
+  if(fps >= 15) return 0.75;
+  if(fps >= 12) return 0.65;
+  if(fps >= 10) return 0.60;
+  if(fps >= 8) return 0.55;
+  if(fps >= 5) return 0.45;
+  return 0.40;
+}
+
+function addRow(){
+  let table=document.querySelector("#camTable tbody");
+  let row=table.insertRow();
+
+  row.innerHTML=`
+  <td><input type="number" value="1" min="1" onchange="hesapla()"></td>
+  <td>
+    <select onchange="updateBandwidth(this)">
+      <option>720P</option>
+      <option>960P</option>
+      <option selected>1080P</option>
+      <option>3MP</option>
+      <option>4MP</option>
+      <option>5MP</option>
+      <option>6MP</option>
+      <option>8MP</option>
+      <option>9MP</option>
+      <option>12MP</option>
+    </select>
+  </td>
+  <td>
+    <select onchange="updateBandwidth(this)">
+      <option>H.264</option>
+      <option>H.265</option>
+    </select>
+  </td>
+  <td><input type="number" value="25" min="1" onchange="updateBandwidth(this)"></td>
+  <td><input type="number" value="0" onchange="hesapla()"></td>
+  <td>
+    <select onchange="hesapla()">
+      <option value="1">24 Saat</option>
+      <option value="0.5">Motion</option>
+    </select>
+  </td>
+  <td><input type="number" value="7" min="1" onchange="hesapla()"></td>
+  <td><button class="del-btn" onclick="delRow(this)">X</button></td>
+  `;
+
+  updateBandwidth(row);
+}
+
+function delRow(btn){
+  btn.closest("tr").remove();
+  hesapla();
+}
+
+function updateBandwidth(elem){
+  let row = elem.tagName === "TR" ? elem : elem.closest("tr");
+
+  let res=row.cells[1].querySelector("select").value;
+  let codec=row.cells[2].querySelector("select").value;
+  let fps=parseInt(row.cells[3].querySelector("input").value);
+  let bwInput=row.cells[4].querySelector("input");
+
+  let base=bitrateTable[res];
+  let factor = getFpsFactor(fps);
+  let bw = base * factor;
+
+  if(codec=="H.265") bw *= 0.5;
+
+  bwInput.value = Math.round(bw);
+
+  hesapla();
+}
+
+function hesapla(){
+  let rows=document.querySelectorAll("#camTable tbody tr");
+  let totalTB=0;
+  let totalBW=0;
+  let totalCam=0;
+
+  rows.forEach(row=>{
+    let adet=parseInt(row.cells[0].querySelector("input").value);
+    let bw=parseFloat(row.cells[4].querySelector("input").value);
+    let day=parseFloat(row.cells[6].querySelector("input").value);
+    let type=parseFloat(row.cells[5].querySelector("select").value);
+    let codec=row.cells[2].querySelector("select").value;
+
+    totalBW+=bw*adet;
+    totalCam+=adet;
+
+    let tb = (bw*1000*86400*day*type*adet)/8/1024/1024/1024/1024;
+
+    // Dahua katsayı
+    let factor = (codec=="H.265") ? 1.15 : 1.25;
+    tb *= factor;
+
+    totalTB+=tb;
+  });
+
+  // HDD önerisi
+  const disks = [1,2,4,6,8,10,12];
+  let hdd = disks.find(d => d >= totalTB) || 12;
+
+  // NVR önerisi
+  let nvr = totalCam <=4 ? 4 : totalCam <=8 ? 8 : totalCam <=16 ? 16 : 32;
+
+  document.getElementById("sonuc").innerHTML =
+    `Toplam Kamera: <b>${totalCam}</b><br>
+     Toplam Bandwidth: <b>${totalBW.toFixed(0)} Kbps</b><br>
+     Disk İhtiyacı: <b>${totalTB.toFixed(2)} TB</b><br>
+     Önerilen HDD: <b>${hdd} TB</b><br>
+     Önerilen NVR: <b>${nvr} Kanal</b>`;
+}
+
+function gonder(){
+  let rows=document.querySelectorAll("#camTable tbody tr");
+  let totalCam=0;
+  let resList=[];
+
+  rows.forEach(row=>{
+    let adet=parseInt(row.cells[0].querySelector("input").value);
+    let res=row.cells[1].querySelector("select").value;
+    totalCam+=adet;
+    resList.push(`${adet} adet ${res}`);
+  });
+
+  let sonucText=document.getElementById("sonuc").innerText;
+
+  let msg=`Merhaba,%0A${resList.join(", ")} kamera için%0A` +
+          `${sonucText.replace(/\n/g,"%0A")}%0Ateklif istiyorum.`;
+
+  window.open("https://wa.me/905317913358?text="+msg);
+}
+
+addRow();
+</script>
+
+</body>
+</html>
