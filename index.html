@@ -6,30 +6,27 @@
 <title>Kamera Hesaplama</title>
 
 <style>
-body { font-family: Arial; background:#0f172a; color:#fff; margin:0; padding:10px; }
-.container { max-width:100%; margin:auto; background:#1e293b; padding:15px; border-radius:12px; }
-h2 { text-align:center; color:#38bdf8; }
+html, body { margin:0; padding:0; width:100%; height:100%; font-family: Arial; background:#0f172a; color:#fff; }
+.container { width:100%; max-width:100%; margin:0 auto; padding:10px; border-radius:12px; box-sizing:border-box; }
+h2 { text-align:center; color:#38bdf8; margin-bottom:10px; }
 
-.table-wrapper { overflow-x:auto; width: 100%;}
-
-table { width:100%; min-width:800px; border-collapse: collapse; }
-th, td { padding:8px; text-align:center; border-bottom:1px solid #334155; }
+.table-wrapper { width:100%; overflow-x:auto; }
+table { width:100%; border-collapse: collapse; min-width:800px; }
+th, td { padding:6px; text-align:center; border-bottom:1px solid #334155; }
 th { background:#334155; }
-
-input, select { width:100%; padding:6px; border-radius:6px; border:none; }
+input, select { width:100%; padding:6px; border-radius:6px; border:none; box-sizing:border-box; }
 
 button { border:none; border-radius:8px; cursor:pointer; font-weight:bold; }
-.add-btn { background:#38bdf8; color:#000; width:100%; padding:10px; margin-top:10px; }
-.calc-btn { background:#38bdf8; color:#000; width:100%; padding:12px; margin-top:10px; }
+.add-btn, .calc-btn, .wa-btn { width:100%; padding:10px; margin-top:10px; }
+.add-btn, .calc-btn { background:#38bdf8; color:#000; }
+.wa-btn { background:#25d366; color:#fff; }
 .del-btn { background:#ef4444; color:#fff; padding:6px 10px; }
-.wa-btn { background:#25d366; color:#fff; width:100%; padding:12px; margin-top:10px; }
 
-.result { margin-top:15px; padding:15px; background:#020617; border-radius:10px; text-align:center; }
+.result { margin-top:15px; padding:15px; background:#020617; border-radius:10px; text-align:center; word-wrap: break-word; }
 </style>
 </head>
 
 <body>
-
 <div class="container">
 <h2>Kamera Disk Hesaplama</h2>
 
@@ -56,7 +53,6 @@ button { border:none; border-radius:8px; cursor:pointer; font-weight:bold; }
 
 <div class="result" id="sonuc"></div>
 <button class="wa-btn" onclick="gonder()">WhatsApp Teklif Al</button>
-
 </div>
 
 <script>
@@ -74,20 +70,19 @@ const bitrateTable = {
 };
 
 function getFpsFactor(fps){
-  if(fps >= 25) return 1;
-  if(fps >= 20) return 0.85;
-  if(fps >= 15) return 0.75;
-  if(fps >= 12) return 0.65;
-  if(fps >= 10) return 0.60;
-  if(fps >= 8) return 0.55;
-  if(fps >= 5) return 0.45;
-  return 0.40;
+  if(fps>=25) return 1;
+  if(fps>=20) return 0.85;
+  if(fps>=15) return 0.75;
+  if(fps>=12) return 0.65;
+  if(fps>=10) return 0.6;
+  if(fps>=8) return 0.55;
+  if(fps>=5) return 0.45;
+  return 0.4;
 }
 
 function addRow(){
   let table=document.querySelector("#camTable tbody");
   let row=table.insertRow();
-
   row.innerHTML=`
   <td><input type="number" value="1" min="1" onchange="hesapla()"></td>
   <td>
@@ -121,39 +116,30 @@ function addRow(){
   <td><input type="number" value="7" min="1" onchange="hesapla()"></td>
   <td><button class="del-btn" onclick="delRow(this)">X</button></td>
   `;
-
   updateBandwidth(row);
 }
 
-function delRow(btn){
-  btn.closest("tr").remove();
-  hesapla();
-}
+function delRow(btn){ btn.closest("tr").remove(); hesapla(); }
 
 function updateBandwidth(elem){
   let row = elem.tagName === "TR" ? elem : elem.closest("tr");
-
   let res=row.cells[1].querySelector("select").value;
   let codec=row.cells[2].querySelector("select").value;
   let fps=parseInt(row.cells[3].querySelector("input").value);
   let bwInput=row.cells[4].querySelector("input");
 
   let base=bitrateTable[res];
-  let factor = getFpsFactor(fps);
-  let bw = base * factor;
+  let factor=getFpsFactor(fps);
+  let bw=base*factor;
+  if(codec=="H.265") bw*=0.5;
 
-  if(codec=="H.265") bw *= 0.5;
-
-  bwInput.value = Math.round(bw);
-
+  bwInput.value=Math.round(bw);
   hesapla();
 }
 
 function hesapla(){
   let rows=document.querySelectorAll("#camTable tbody tr");
-  let totalTB=0;
-  let totalBW=0;
-  let totalCam=0;
+  let totalTB=0; let totalBW=0; let totalCam=0;
 
   rows.forEach(row=>{
     let adet=parseInt(row.cells[0].querySelector("input").value);
@@ -161,27 +147,19 @@ function hesapla(){
     let day=parseFloat(row.cells[6].querySelector("input").value);
     let type=parseFloat(row.cells[5].querySelector("select").value);
     let codec=row.cells[2].querySelector("select").value;
-
     totalBW+=bw*adet;
     totalCam+=adet;
 
-    let tb = (bw*1000*86400*day*type*adet)/8/1024/1024/1024/1024;
-
-    // Dahua katsayı
-    let factor = (codec=="H.265") ? 1.15 : 1.25;
-    tb *= factor;
-
+    let tb=(bw*1000*86400*day*type*adet)/8/1024/1024/1024/1024;
+    tb *= (codec=="H.265")?1.15:1.25;
     totalTB+=tb;
   });
 
-  // HDD önerisi
-  const disks = [1,2,4,6,8,10,12];
-  let hdd = disks.find(d => d >= totalTB) || 12;
+  const disks=[1,2,4,6,8,10,12];
+  let hdd=disks.find(d=>d>=totalTB)||12;
+  let nvr=totalCam<=4?4:totalCam<=8?8:totalCam<=16?16:32;
 
-  // NVR önerisi
-  let nvr = totalCam <=4 ? 4 : totalCam <=8 ? 8 : totalCam <=16 ? 16 : 32;
-
-  document.getElementById("sonuc").innerHTML =
+  document.getElementById("sonuc").innerHTML=
     `Toplam Kamera: <b>${totalCam}</b><br>
      Toplam Bandwidth: <b>${totalBW.toFixed(0)} Kbps</b><br>
      Disk İhtiyacı: <b>${totalTB.toFixed(2)} TB</b><br>
@@ -191,21 +169,16 @@ function hesapla(){
 
 function gonder(){
   let rows=document.querySelectorAll("#camTable tbody tr");
-  let totalCam=0;
-  let resList=[];
-
+  let totalCam=0; let resList=[];
   rows.forEach(row=>{
     let adet=parseInt(row.cells[0].querySelector("input").value);
     let res=row.cells[1].querySelector("select").value;
     totalCam+=adet;
     resList.push(`${adet} adet ${res}`);
   });
-
   let sonucText=document.getElementById("sonuc").innerText;
-
-  let msg=`Merhaba,%0A${resList.join(", ")} kamera için%0A` +
+  let msg=`Merhaba,%0A${resList.join(", ")} kamera için%0A`+
           `${sonucText.replace(/\n/g,"%0A")}%0Ateklif istiyorum.`;
-
   window.open("https://wa.me/905317913358?text="+msg);
 }
 
